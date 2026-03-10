@@ -66,7 +66,7 @@ Controleer in je Slack app dat slash commands/interactivity naar je Dolfje endpo
 ## Handleidng
 
 De gebruikershandleiding kan je hier vinden:
-https://metnerdsomtafel.nl/wiki/index.php/Dolfje
+https://metnerdsomtafel.nl/wiki/index.php?title=Dolfje
 
 ## Credit
 
