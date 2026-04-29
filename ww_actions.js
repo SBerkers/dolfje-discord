@@ -281,103 +281,65 @@ async function joinAction({ body, ack, say }) {
 }
 
 async function joinActionFunction(
-  userId,
+  interaction,
   gameId,
-  msgChannelId,
-  msgTs,
   singleGame,
 ) {
   try {
-    const userName = await helpers.getUserName(client, userId);
+    const userId = interaction.user.id;
+    const userName = interaction.user.username;
     const result = await queries.joinGame(gameId, userId, userName);
     const thisGame = await queries.getSpecificGame(gameId);
     if (result.succes) {
-      await client.chat.postMessage({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: process.env.REG_CHANNEL,
-        text: `${userName} ${t("TEXTJOINED")} ${t(thisGame.gms_name)}, ${t("TEXTTHEREARE")} ${
-          result.numberOfPlayers
-        } ${t("TEXTAMOUNTJOINED")} ${t("TEXTAMOUNTVIEWING")} ${result.numberOfViewers}`,
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `${userName} ${t("TEXTJOINED")} ${t(thisGame.gms_name)}, ${t("TEXTTHEREARE")} ${
-                result.numberOfPlayers
-              } ${t("TEXTAMOUNTJOINED")} ${t("TEXTAMOUNTVIEWING")} ${result.numberOfViewers}`,
-            },
-          },
-        ],
-      });
+      const regChannel = await interaction.client.channels.fetch(process.env.REG_CHANNEL).catch(() => null);
+      if (regChannel) {
+        await regChannel.send({
+          content: `${userName} ${t("TEXTJOINED")} ${t(thisGame.gms_name)}, ${t("TEXTTHEREARE")} ${
+            result.numberOfPlayers
+          } ${t("TEXTAMOUNTJOINED")} ${t("TEXTAMOUNTVIEWING")} ${result.numberOfViewers}`,
+        });
+      }
       const doeMeeMessage = t("TEXTJOINEDGAME");
-      await helpers.sendIM(client, userId, doeMeeMessage);
+      await interaction.reply({ content: doeMeeMessage, ephemeral: true });
     } else {
-      await helpers.sendIM(
-        client,
-        userId,
-        `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLJOIN")}: ${result.error}`,
-      );
+      await interaction.reply({
+        content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLJOIN")}: ${result.error}`,
+        ephemeral: true,
+      });
     }
     if (!singleGame) {
       const games = await queries.getGameRegisterUser(userId);
       if (games.length > 0) {
-        let buttonElements = [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: `${t("TEXTCLOSEMESSAGE")}`,
-            },
-            value: "Close",
-            action_id: `delete-${msgChannelId}`,
-          },
-        ];
+        const actionRow = new ActionRowBuilder();
         for (const game of games) {
-          buttonElements.push({
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: game.gms_name,
-            },
-            value: game.gms_id.toString(),
-            action_id: `inschrijven-${game.gms_id}`,
-          });
+          actionRow.addComponents(
+            new ButtonBuilder()
+              .setCustomId(`inschrijven-${game.gms_id}`)
+              .setLabel(game.gms_name)
+              .setStyle(ButtonStyle.Primary)
+          );
         }
-        let buttonblocks = [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKREGISTER")}`,
-            },
-          },
-          {
-            type: "actions",
-            elements: buttonElements,
-          },
-        ];
-        await client.chat.update({
-          token: process.env.SLACK_BOT_TOKEN,
-          channel: msgChannelId,
-          ts: msgTs,
-          text: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKREGISTER")}`,
-          blocks: buttonblocks,
+        actionRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("delete-close")
+            .setLabel(`${t("TEXTCLOSEMESSAGE")}`)
+            .setStyle(ButtonStyle.Secondary)
+        );
+        await interaction.message.edit({
+          content: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKREGISTER")}`,
+          components: [actionRow],
         });
       } else {
-        await client.chat.delete({
-          token: process.env.SLACK_BOT_TOKEN,
-          channel: msgChannelId,
-          ts: msgTs,
-        });
+        await interaction.message.delete();
       }
     }
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      userId,
-      `Er ging iets mis met deelnemen: ${error.message}`,
-    );
+    const errorMsg = `Er ging iets mis met deelnemen: ${error.message}`;
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: errorMsg, ephemeral: true });
+    } else {
+      await interaction.followUp({ content: errorMsg, ephemeral: true });
+    }
   }
 }
 
