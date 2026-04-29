@@ -1086,80 +1086,54 @@ async function stopGameCommand({ command, ack, say }) {
   }
 }
 
-async function createChannel({ command, ack, say }) {
-  ack();
+const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+
+async function createChannel(interaction) {
   try {
-    const games = await queries.getActiveGameUser(command.user_id);
-    const params = command.text.trim().split(" ");
-    if (params.length !== 1) {
-      const warning = `${t("TEXTONEPARAMETERNEEDED")} ${t("COMMANDCREATECHANNEL")} [${t("TEXTNAMECHANNEL")}]`;
-      await helpers.sendIM(client, command.user_id, warning);
-      return;
-    }
-    if (games.length == 1) {
+    const channelName = interaction.options.getString("channelname");
+    const games = await queries.getActiveGameUser(interaction.user.id);
+
+    if (games.length === 1) {
       await actions.createNewChannelFunction(
         games[0].gms_id,
-        command.user_id,
-        params[0],
-        0,
-        0,
+        interaction.user.id,
+        channelName,
+        interaction,
+        null,
         true,
       );
     } else if (games.length > 0) {
-      const im = await client.conversations.open({
-        token: process.env.SLACK_BOT_TOKEN,
-        users: command.user_id,
-      });
-      let buttonElements = [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: `${t("TEXTCLOSEMESSAGE")}`,
-          },
-          value: "Close",
-          action_id: `delete-${command.channel_id}`,
-        },
-      ];
-      for (const game of games) {
-        buttonElements.push({
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: game.gms_name,
-          },
-          value: params[0].toString(),
-          action_id: `kanaal-${game.gms_id}`,
-        });
-      }
-      let buttonblocks = [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKCHANNEL")}`,
-          },
-        },
-        {
-          type: "actions",
-          elements: buttonElements,
-        },
-      ];
-      await client.chat.postMessage({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: im.channel.id,
-        text: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKCHANNEL")}`,
-        blocks: buttonblocks,
+      const row = new ActionRowBuilder()
+        .addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId(`kanaal-${channelName}`)
+            .setPlaceholder(`${t("TEXTCLICKGAME")} ${t("TEXTCLICKCHANNEL")}`)
+            .addOptions(
+              games.map((game) => ({
+                label: game.gms_name,
+                value: game.gms_id.toString(),
+              }))
+            ),
+        );
+
+      await interaction.reply({
+        content: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKCHANNEL")}`,
+        components: [row],
+        ephemeral: true,
       });
     } else {
-      throw new Error("Je doet niet mee aan een actief spel");
+      await interaction.reply({
+        content: "Je doet niet mee aan een actief spel",
+        ephemeral: true,
+      });
     }
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`,
-    );
+    console.error(error.message);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
 

@@ -837,29 +837,31 @@ async function addModeratorFunction(
   }
 }
 
-async function createNewChannel({ body, ack, say }) {
-  ack();
+const { ChannelType } = require('discord.js');
+
+async function createNewChannel(interaction) {
   try {
-    const userId = body.user.id;
-    const gameId = body.actions[0].action_id.trim().split("-")[1];
-    const channelName = body.actions[0].value;
-    const msgChannelId = body.container.channel_id;
-    const msgTs = body.container.message_ts;
+    const userId = interaction.user.id;
+    // Extract channelName from customId (e.g. kanaal-mychannel)
+    const channelName = interaction.customId.replace("kanaal-", "");
+    // Extract gameId from the selected value
+    const gameId = interaction.values[0];
     const singleGame = false;
     await createNewChannelFunction(
       gameId,
       userId,
       channelName,
-      msgChannelId,
-      msgTs,
+      interaction,
+      null,
       singleGame,
     );
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`,
-    );
+    console.error(error.message);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
@@ -867,7 +869,7 @@ async function createNewChannelFunction(
   gameId,
   userId,
   newChannelName,
-  msgChannelId,
+  interaction,
   msgTs,
   singleGame,
 ) {
@@ -883,47 +885,64 @@ async function createNewChannelFunction(
     let channelName;
     const regexName = /^ww\d.*/i;
     if (regexName.test(newChannelName) === false) {
-      channelName = `${game.gms_name.toLowerCase().split(" ").join("_")}_${newChannelName.toLowerCase()}`;
+      channelName = `${game.gms_name.toLowerCase().split(" ").join("-")}-${newChannelName.toLowerCase()}`;
     } else {
       channelName = newChannelName.toLowerCase();
     }
 
-    const channel = await client.conversations.create({
-      token: process.env.SLACK_BOT_TOKEN,
+    // Sanitize the entire channel name to remove spaces as required by Discord text channels
+    channelName = channelName.replace(/\s+/g, '-');
+
+    const category = interaction.guild.channels.cache.find(c => c.name.toLowerCase() === game.gms_name.toLowerCase() && c.type === ChannelType.GuildCategory);
+
+    const permissionOverwrites = [
+      {
+        id: interaction.guild.id,
+        deny: ['ViewChannel'],
+      },
+    ];
+
+    for (const modId of allModerators) {
+      permissionOverwrites.push({
+        id: modId,
+        allow: ['ViewChannel'],
+      });
+    }
+
+    const channel = await interaction.guild.channels.create({
       name: channelName,
-      is_private: true,
+      type: ChannelType.GuildText,
+      parent: category ? category.id : null,
+      permissionOverwrites: permissionOverwrites,
     });
-    await client.conversations.invite({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channel.channel.id,
-      users: allModerators.join(","),
+
+    await channel.send({
+      content: `<@${userId}> ${t("TEXTCREATEDCHANNEL")}`,
     });
-    await client.chat.postMessage({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channel.channel.id,
-      text: `${await helpers.getUserName(client, userId)} ${t("TEXTCREATEDCHANNEL")}`,
-    });
+
     const channelInput = {
       gch_gms_id: gameId,
-      gch_slack_id: channel.channel.id,
-      gch_name: channel.channel.name,
+      gch_slack_id: channel.id,
+      gch_name: channel.name,
       gch_type: helpers.channelType.standard,
       gch_user_created: userId,
     };
     await queries.logChannel(channelInput);
+
     if (!singleGame) {
-      await client.chat.delete({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: msgChannelId,
-        ts: msgTs,
-      });
+      if (interaction.isStringSelectMenu()) {
+        await interaction.update({ content: `${t("TEXTCREATEDCHANNEL")} <#${channel.id}>`, components: [] });
+      }
+    } else {
+      await interaction.reply({ content: `${t("TEXTCREATEDCHANNEL")} <#${channel.id}>`, ephemeral: true });
     }
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`,
-    );
+    console.error(error.message);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
