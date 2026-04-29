@@ -2,6 +2,7 @@ const helpers = require("./ww_helpers");
 const queries = require("./ww_queries");
 const actions = require("./ww_actions");
 const { t } = require("localizify");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
 module.exports = { addCommands };
 let client;
 
@@ -1005,30 +1006,25 @@ async function startGameCommand({ command, ack, say }) {
   }
 }
 
-async function stopGameCommand({ command, ack, say }) {
-  ack();
+async function stopGameCommand(interaction) {
   try {
-    const params = command.text.trim().split(" ");
-    if (params.length < 1) {
-      const warning = `${t("TEXTTWODPARAMETERS")} ${t("COMMANDSTOPGAME")} [${t("TEXTPASSWORD")}] [${t(
-        "TEXTGAMENAME",
-      )}]`;
-      await helpers.sendIM(client, command.user_id, warning);
-      return;
-    }
-    const game = await queries.getGameName(params[1]);
+    const password = interaction.options.getString("password");
+    const gamename = interaction.options.getString("gamename");
 
-    if (params[0] !== process.env.MNOT_ADMIN_PASS) {
-      const warning = `${t("TEXTPASSWORDNEEDEDSTOPGAME")}`;
-      await helpers.sendIM(client, command.user_id, warning);
+    if (password !== process.env.MNOT_ADMIN_PASS) {
+      await interaction.reply({ content: t("TEXTPASSWORDNEEDEDSTOPGAME"), ephemeral: true });
       return;
     }
-    if (!(await queries.isModerator(game.gms_id, command.user_id))) {
-      const warning = `${t("TEXTMODERATORSTOPGAME")}`;
-      await helpers.sendIM(client, command.user_id, warning);
+
+    const game = await queries.getGameName(gamename);
+
+    if (!(await queries.isModerator(game.gms_id, interaction.user.id))) {
+      await interaction.reply({ content: t("TEXTMODERATORSTOPGAME"), ephemeral: true });
       return;
     }
+
     const result = await queries.stopGame(game.gms_id);
+
     if (result.succes) {
       const allChannels = await queries.getAllChannels(game.gms_id);
       const channelId = await queries.getChannel(
@@ -1036,75 +1032,112 @@ async function stopGameCommand({ command, ack, say }) {
         helpers.channelType.vote,
       );
       const chuckedChannels = [];
-      while (allChannels.length) {
-        chuckedChannels.push(allChannels.splice(0, 5));
+      const channelsCopy = [...allChannels];
+
+      while (channelsCopy.length) {
+        chuckedChannels.push(channelsCopy.splice(0, 5));
       }
 
-      let buttonblocks = [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `${t("TEXTCLICKSELFINVITECHANNELS")}`,
-          },
-        },
-        {
-          type: "actions",
-          elements: [
-            {
-              type: "button",
-              text: {
-                type: "plain_text",
-                text: t("TEXTALLCHANNELS"),
-              },
-              value: `allchannels-${game.gms_id}`,
-              action_id: `selfinvite-allchannels-${game.gms_id}`,
-            },
-          ],
-        },
-      ];
-      for (const channelChunk of chuckedChannels)
-        buttonblocks = buttonblocks.concat([
-          {
-            type: "actions",
-            elements: channelChunk.map((x) => ({
-              type: "button",
-              text: {
-                type: "plain_text",
-                text: x.gch_name,
-              },
-              value: x.gch_slack_id,
-              action_id: `selfinvite-${x.gch_slack_id}`,
-            })),
-          },
-        ]);
-      await client.chat.postMessage({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: channelId,
-        text: `${t("TEXTCLICKSELFINVITECHANNELS")}`,
-        blocks: buttonblocks,
-      });
+      const components = [];
 
-      await client.chat.postMessage({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: process.env.REG_CHANNEL || command.channel_id,
-        text: `${game.gms_name} ${t("TEXTGAMECLOSED")}`,
-      });
-
-      await helpers.sendIM(
-        client,
-        command.user_id,
-        `${game.gms_name} ${t("TEXTGAMECLOSED")}`,
+      // First action row contains "All Channels"
+      const firstRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`selfinvite-allchannels-${game.gms_id}`)
+          .setLabel(t("TEXTALLCHANNELS"))
+          .setStyle(ButtonStyle.Primary)
       );
+      components.push(firstRow);
+
+      for (const channelChunk of chuckedChannels) {
+        if (components.length >= 5) break; // Discord limits to 5 ActionRows per message
+
+        const row = new ActionRowBuilder();
+        for (const channel of channelChunk) {
+          row.addComponents(
+            new ButtonBuilder()
+              .setCustomId(`selfinvite-${channel.gch_slack_id}`)
+              .setLabel(channel.gch_name || "Channel")
+              .setStyle(ButtonStyle.Secondary)
+          );
+        }
+        components.push(row);
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle(t("TEXTGAMECLOSED"))
+        .setDescription(t("TEXTCLICKSELFINVITECHANNELS"))
+        .setColor(0x00FF00);
+
+      // Reply to interaction
+      await interaction.reply({
+        content: `${game.gms_name} ${t("TEXTGAMECLOSED")}`,
+        ephemeral: true
+      });
+
+      // Send to vote channel
+      if (channelId) {
+        try {
+          const voteChannel = await interaction.client.channels.fetch(channelId);
+          if (voteChannel) {
+            await voteChannel.send({
+              content: t("TEXTCLICKSELFINVITECHANNELS"),
+              embeds: [embed],
+              components: components
+            });
+
+            // Post an extra message if we had more than 20 channels
+            if (chuckedChannels.length > 4) {
+                const overflowComponents = [];
+                for (let i = 4; i < chuckedChannels.length; i++) {
+                    if (overflowComponents.length >= 5) break;
+                    const row = new ActionRowBuilder();
+                    for (const channel of chuckedChannels[i]) {
+                      row.addComponents(
+                        new ButtonBuilder()
+                          .setCustomId(`selfinvite-${channel.gch_slack_id}`)
+                          .setLabel(channel.gch_name || "Channel")
+                          .setStyle(ButtonStyle.Secondary)
+                      );
+                    }
+                    overflowComponents.push(row);
+                }
+                if (overflowComponents.length > 0) {
+                    await voteChannel.send({
+                        content: "More channels:",
+                        components: overflowComponents
+                    });
+                }
+            }
+          }
+        } catch (e) {
+          console.error("Could not send message to vote channel", e.message);
+        }
+      }
+
+      // Send to registration channel
+      if (process.env.REG_CHANNEL) {
+          try {
+              const regChannel = await interaction.client.channels.fetch(process.env.REG_CHANNEL);
+              if (regChannel) {
+                  await regChannel.send({
+                    content: `${game.gms_name} ${t("TEXTGAMECLOSED")}`
+                  });
+              }
+          } catch (e) {
+              console.error("Could not send message to registration channel", e.message);
+          }
+      }
+
     } else {
-      await helpers.sendIM(client, command.user_id, result.error);
+      await interaction.reply({ content: result.error, ephemeral: true });
     }
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTOPGAME")}: ${error.message}`,
-    );
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTOPGAME")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTOPGAME")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
