@@ -821,29 +821,42 @@ async function startGameCommand({ command, ack, say }) {
       `${game.gms_name.toLowerCase().split(" ").join("_")}_${t("TEXTSPECTATORS")}`,
     );
 
-    const voteBoothChannel = await helpers.createOrGetPrivateChannel(
+    const mockCategoryId = "mock-category-id";
+
+    const voteBoothChannel = await helpers.createDiscordChannelWithPermissions(
       client,
+      mockCategoryId,
       `${game.gms_name.toLowerCase().split(" ").join("_")}_${t("TEXTVOTEBOOTH")}`,
+      [...result.playerList, ...result.viewerList].map((x) => x.gpl_slack_id)
     );
 
-    const voteFlowChannel = await helpers.createOrGetPrivateChannel(
+    // Note: voteFlowChannel uses vertellerList only
+    const voteFlowChannel = await helpers.createDiscordChannelWithPermissions(
       client,
+      mockCategoryId,
       `${game.gms_name.toLowerCase().split(" ").join("_")}_${t("TEXTVOTEFLOW")}`,
+      result.vertellerList.map((x) => x.gpl_slack_id)
     );
 
-    const wolvesChannel = await helpers.createOrGetPrivateChannel(
+    const wolvesChannel = await helpers.createDiscordChannelWithPermissions(
       client,
+      mockCategoryId,
       `${game.gms_name.toLowerCase().split(" ").join("_")}_${t("TEXTWOLFCHANNEL")}`,
+      result.vertellerList.map((x) => x.gpl_slack_id) // Inviting wolves still happens manually
     );
 
-    const talkChannel = await helpers.createOrGetPrivateChannel(
+    const talkChannel = await helpers.createDiscordChannelWithPermissions(
       client,
+      mockCategoryId,
       `${game.gms_name.toLowerCase().split(" ").join("_")}_${t("TEXTTALKCHANNEL")}`,
+      [...result.viewerList, ...result.playerList].map((x) => x.gpl_slack_id)
     );
 
-    const spoilerChannel = await helpers.createOrGetPrivateChannel(
+    const spoilerChannel = await helpers.createDiscordChannelWithPermissions(
       client,
+      mockCategoryId,
       `${game.gms_name.toLowerCase().split(" ").join("_")}_${t("TEXTSPOILERCHANNEL")}`,
+      result.vertellerList.map((x) => x.gpl_slack_id)
     );
 
     if (result.succes) {
@@ -860,11 +873,6 @@ async function startGameCommand({ command, ack, say }) {
         gch_user_created: command.user_id,
       };
       await queries.logChannel(mainChannelInput);
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: voteBoothChannel.channel.id,
-        users: result.playerList.map((x) => x.gpl_slack_id).join(","),
-      });
       const voteBoothChannelInput = {
         gch_gms_id: game.gms_id,
         gch_slack_id: voteBoothChannel.channel.id,
@@ -888,16 +896,6 @@ async function startGameCommand({ command, ack, say }) {
       });
       await client.conversations.invite({
         token: process.env.SLACK_BOT_TOKEN,
-        channel: voteBoothChannel.channel.id,
-        users: result.viewerList.map((x) => x.gpl_slack_id).join(","),
-      });
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: voteFlowChannel.channel.id,
-        users: result.vertellerList.map((x) => x.gpl_slack_id).join(","),
-      });
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
         channel: spectatorsChannel.channel.id,
         users: result.viewerList.map((x) => x.gpl_slack_id).join(","),
       });
@@ -911,17 +909,7 @@ async function startGameCommand({ command, ack, say }) {
       };
       await queries.logChannel(spectatorInput);
 
-      // Invite everyone to the talking channel
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: talkChannel.channel.id,
-        users: result.viewerList.map((x) => x.gpl_slack_id).join(","),
-      });
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: talkChannel.channel.id,
-        users: result.playerList.map((x) => x.gpl_slack_id).join(","),
-      });
+      // Talking channel users handled by discord permissions
       const talkChannelInput = {
         gch_gms_id: game.gms_id,
         gch_slack_id: talkChannel.channel.id,
@@ -931,12 +919,7 @@ async function startGameCommand({ command, ack, say }) {
       };
       await queries.logChannel(talkChannelInput);
 
-      // Only invite the narrators to the spoiler channel
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: spoilerChannel.channel.id,
-        users: result.vertellerList.map((x) => x.gpl_slack_id).join(","),
-      });
+      // Spoiler channel users handled by discord permissions
       const spoilerChannelInput = {
         gch_gms_id: game.gms_id,
         gch_slack_id: spoilerChannel.channel.id,
@@ -946,12 +929,7 @@ async function startGameCommand({ command, ack, say }) {
       };
       await queries.logChannel(spoilerChannelInput);
 
-      // Invite the narrators to the wolf channel, inviting the wolves still happens manually
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: wolvesChannel.channel.id,
-        users: result.vertellerList.map((x) => x.gpl_slack_id).join(","),
-      });
+      // Wolves channel users handled by discord permissions
       const wolvesChannelInput = {
         gch_gms_id: game.gms_id,
         gch_slack_id: wolvesChannel.channel.id,
