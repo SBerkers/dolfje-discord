@@ -1,76 +1,66 @@
-# Dolfje een MNOT Weerwolf bot
+# Dolfje - Discord Migration Plan & Documentation
 
-Deze bot is geschreven om het weerwolven spel op de MNOT weerwolven slack te begeleiden.
-Wij spelen het spel met een (of meerdere) verteller(s) die het spel leiden.
-Speel een keer mee op https://mnot.nl/weerwolvenslack !
+This document outlines the migration plan and technical requirements to port the Slack Dolfje werewolf bot to Discord, ensuring all features are mapped correctly and adapted to Discord's capabilities, permissions, and API (`discord.js`).
 
-## Let op!
+## 1. Slack vs Discord Functionality Mapping
 
-Dit is versie 3, voor de oude versie met MariaDB kijk naar de branch v2.
+### Architectural Gaps
+- **Workspaces & Channels:** Slack uses Workspaces and Channels. Discord uses Servers (Guilds) with Categories and Channels.
+- **Interactions:** Slack relies on Blocks, Modals, and Action IDs. Discord uses Embeds, Modals (limited to text inputs), and Message Components (Action Rows, Buttons, Select Menus).
+- **Ephemeral Messages:** Slack ephemeral messages can be sent anytime in a channel. Discord ephemeral messages must be a direct response to an Interaction (like a Slash Command or Button click).
+- **Slash Commands:** Slack allows arbitrary text after a slash command (e.g., `/startgame ww1 15 mychannel`). Discord strongly prefers defined arguments/options for commands, creating a better UI.
 
-## Installatie handleiding
+### Overcoming the Gaps
+- **Slash Commands:** All commands will be converted to Discord Application Commands (Slash Commands) with specific argument types (String, Integer, User, etc.). We will use English statically for command names (e.g. `/startgame` instead of dynamically localized command names) to comply with Discord's command registration.
+- **Game Organization:** A game will be created under a **Discord Category** named after the game (e.g. `WW-1-GAME-TITLE`). All channels created for the game (`village`, `voting-booth`, `wolves`) will be nested in this category.
+- **UI Components:** We will replace Slack blocks with Discord **Embeds** and **Action Rows**.
+- **Threading:** We will convert Slack's thread history gathering to Discord's thread API if needed, although Discord allows creating a dedicated Thread channel directly on a message.
 
-Dolfje is als klein project begonnen en beetje uit de hand gelopen.
-Het ondersteund meerdere spellen, maar maar 1 Slack te tegelijkertijd, als je dus ook van Dolfje gebruik wilt maken zal je het zelf moeten hosten.
-Hieronder een beknopt stappen plan.
+## 2. Discord Permissions & Channel Setup
 
-### Maak een nieuwe Slack app
+The fundamental requirement is to maintain anonymity for the Wolves and specific roles. Discord supports this by assigning channel permissions directly to Users, entirely avoiding the need to create roles.
 
-```
-Op https://api.slack.com/apps kan je een nieuwe app aan maken, het makkelijkst is omdat direct in de Slack te doen waar je Dolfje wilt gebruiken
-```
+### Channel Creation Strategy
+1. **Category:** Create a Category (e.g., `ww_1_my_game`).
+2. **Global Hidden:** The category and all channels will have `@everyone` `VIEW_CHANNEL` set to `false`.
+3. **Village Channel:** The `ww-1-village` channel will have `VIEW_CHANNEL` set to `true` for all assigned players (via specific User ID permission overwrites) and Moderators. Spectators will have `VIEW_CHANNEL` `true` but `SEND_MESSAGES` `false`.
+4. **Wolves Channel:** The `ww-1-wolves` channel will be completely hidden from anyone not explicitly assigned. The bot will add `VIEW_CHANNEL` `true` *only* for the specific User IDs of the drawn Wolves and Moderators. This way, no one can see who has access, and no server-wide "Wolf" role is ever created, avoiding "role profile leakage."
+5. **Special Roles Channels:** Similar to the Wolves, any special roles that need private text channels (e.g., Seer) will have a channel specifically created with `VIEW_CHANNEL` restricted to just that User ID and the Moderators.
+6. **Voting Booth:** Living players get access to talk/vote. Dead players will have `SEND_MESSAGES` disabled.
 
-### Maak de database aan
+## 3. Quiz Editor: Role Assigner UI
 
-```
-De wwmnot.sql maakt de database aan zoals je hem nodig hebt. Dolfje gebruikt een PostgreSQL database.
-Wil je een ander type database wilt gebruiken zal je zelf de code daar voor moeten aanpassen.
-```
+Currently, the host types `/wwverdeelrollen wolf:5 ziener:1 heks:2 burger:`.
+In Discord, we will create an interactive "Quiz Editor" UI.
 
-### Maak een .env file aan
+**Flow:**
+1. The moderator types `/assignroles` without specifying amounts.
+2. The bot responds with an ephemeral message containing an Embed that lists the current roles configured:
+   - Wolves: 0
+   - Seer: 0
+   - Witch: 0
+   - Villagers: [Remaining]
+3. Below the Embed, the bot provides **Action Rows** with Buttons for the roles.
+   - ➕ `Add Wolf` | ➖ `Remove Wolf`
+   - ➕ `Add Seer` | ➖ `Remove Seer`
+   - etc.
+4. Each button press updates the embed in real-time.
+5. A final `Confirm Distribution` button applies the roles and creates the corresponding private channels for the special roles.
 
-```
-In voorbeeld.env staat welke regels er in je .env file moeten komen te staan
-```
+## 4. Database & Technical Details
 
-Belangrijkste variabelen:
+The current backend uses PostgreSQL (`pg` module) and the schema is defined in `wwmnot.sql`.
 
-- `SLACK_SIGNING_SECRET`
-- `SLACK_BOT_TOKEN`
-- `DB_HOST`
-- `DB_PORT`
-- `DB_USER`
-- `DB_PASS`
-- `DB_DATABASE`
-- `DB_SCHEMA` (optioneel, standaard `public`)
-- `MNOT_ADMIN_PASS`
-- `APPLANG` (`nl` of `en`)
-- `REG_CHANNEL`
+### Technical Gaps & Required Changes:
+- **Slack IDs:** The current schema uses columns like `gpl_slack_id`, `gch_slack_id`, and `gpo_slack_message_id`. Discord uses "Snowflakes" (18-19 digit numbers). Since the database uses `varchar(255)`, it natively supports Discord Snowflakes without data truncation.
+- **Schema Update:** While technically compatible, we should semantically rename the columns from `*_slack_id` to `*_discord_id` (or just `*_user_id`/`*_channel_id`) for clarity in future migrations.
+- **Message Tracking:** Discord message IDs are also Snowflakes. The Slack `ts` (timestamp string) format used for message grouping will be replaced by the direct Discord Message ID Snowflake.
+- **Environment Variables:** `SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN` will be replaced by `DISCORD_BOT_TOKEN` and `DISCORD_CLIENT_ID`.
 
-De databaseverbinding wordt in de code opgebouwd uit de `DB_*` variabelen.
-Daarnaast gebruikt Dolfje PostgreSQL `search_path` op basis van `DB_SCHEMA`.
-
-### Installeer NodeJS
-
-```
-Installeer NodeJS en installeer de benodige packages.
-```
-
-De Slack integratie gebruikt `@slack/bolt` in combinatie met `@slack/web-api`.
-
-### Draai container
-
-Draai de container en forward port 6262 vanuit de container door naar een url.
-Controleer in je Slack app dat slash commands/interactivity naar je Dolfje endpoint wijzen.
-
-## Handleidng
-
-De gebruikershandleiding kan je hier vinden:
-https://metnerdsomtafel.nl/wiki/index.php?title=Dolfje
-
-## Credit
-
-Dolfje is gemaakt door foaly, Martin en Vincent met vertaalhulp van Maikel en testhulp van oa Thijs, deWhiskyNerd, Ferry, Gerine, Luca, Soof, Jessica, Annabel, Slapstick, Sarah, Coen, Marieke, Lotte, William, Stef, Arnoud, Nini, Rob, Hannah, Dina, Margriet en Xander.
-Je kunt ons vinden op onze weerwolf slack https://mnot.nl/weerwolvenslack
-Heb je vragen, tips, opmeringen, suggesties of wil je iets anders over Dolfje kwijt mag je op die Slack altijd foaly DMen!
-Wil je je dankbaarheid tonen, mag je altijd een kop thee voor me kopen ;) https://paypal.me/foaly
+## 5. Summary of Execution Steps
+1. Re-initialize `discord.js` within `index.js`, dropping `@slack/bolt` dependencies.
+2. Refactor `ww_queries.js` and `wwmnot.sql` to rename Slack specific column names and ensure queries match Discord logic.
+3. Migrate all commands in `ww_commands.js` to Discord Application Slash Commands format.
+4. Implement the role distribution interactive button UI.
+5. Overhaul `ww_helpers.js` channel creation functions to build Discord Categories and assign User Permission Overwrites instead of inviting via Slack conversations.
+6. Localize texts as needed but keep Slash command structural names statically English.
