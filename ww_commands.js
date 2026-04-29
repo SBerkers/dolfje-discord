@@ -966,15 +966,14 @@ async function startGameCommand({ command, ack, say }) {
       for (const player of notSelectedPlayers) {
         await helpers.sendIM(client, player.gpl_slack_id, notSelectedMessage);
       }
-      let returnText = [];
+      let returnText = "";
       const usersList = await helpers.getUserlist(
         client,
         mainChannel.channel.id,
       );
+      const userMap = new Map(usersList.map((user) => [user.id, user]));
       for (const player of result.playerList) {
-        const foundUser = usersList.find(
-          (user) => user.id === player.gpl_slack_id,
-        );
+        const foundUser = userMap.get(player.gpl_slack_id);
         if (foundUser) {
           returnText += `${foundUser.name}\n`;
         }
