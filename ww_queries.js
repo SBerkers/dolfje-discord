@@ -97,14 +97,10 @@ const pollStates = {
 };
 
 async function getLastGameName() {
-  try {
-    const { rows } = await promisePool.query(
-      `select gms_name from games where gms_id = (select max(gms_id) from games)`,
-    );
-    return rows;
-  } catch (err) {
-    console.log(err);
-  }
+  const { rows } = await promisePool.query(
+    `select gms_name from games where gms_id = (select max(gms_id) from games)`,
+  );
+  return rows;
 }
 
 async function createNewGame(voteStyle, gameName, revivable, userId, userName) {
@@ -119,8 +115,8 @@ async function createNewGame(voteStyle, gameName, revivable, userId, userName) {
     await addModerator(userId, userName, game.gms_id);
     return { succes: true, gameName: game.gms_name };
   } catch (err) {
-    console.log(err);
-    return { succes: false, error: err };
+    console.error("Database error in createNewGame:", err.message);
+    return { succes: false, error: err.message };
   }
 }
 
@@ -216,8 +212,8 @@ async function startGame(gameId, maxPlayers) {
       vertellerList: rows3,
     };
   } catch (err) {
-    console.log(err);
-    return { succes: false, error: err };
+    console.error("Database error in startGame:", err.message);
+    return { succes: false, error: err.message };
   }
 }
 
@@ -231,8 +227,8 @@ async function stopGame(gameId) {
     );
     return { succes: true };
   } catch (err) {
-    console.log(err);
-    return { succes: false, error: err };
+    console.error("Database error in stopGame:", err.message);
+    return { succes: false, error: err.message };
   }
 }
 
@@ -287,8 +283,8 @@ async function joinGame(gameId, userId, userName) {
       numberOfViewers: rows[0].numberOfViewers,
     };
   } catch (err) {
-    console.log(err);
-    return { succes: false, error: err };
+    console.error("Database error in joinGame:", err.message);
+    return { succes: false, error: err.message };
   }
 }
 
@@ -345,8 +341,8 @@ async function viewGame(userId, userName, gameId) {
       numberOfViewers: rows[0].numberOfViewers,
     };
   } catch (err) {
-    console.log(err);
-    return { succes: false, error: err };
+    console.error("Database error in viewGame:", err.message);
+    return { succes: false, error: err.message };
   }
 }
 
@@ -372,8 +368,8 @@ async function leaveGame(gameId, userId) {
       numberOfViewers: rows[0].numberOfViewers,
     };
   } catch (err) {
-    console.log(err);
-    return { succes: false, error: err };
+    console.error("Database error in leaveGame:", err.message);
+    return { succes: false, error: err.message };
   }
 }
 
@@ -982,7 +978,7 @@ async function logArchiveChannel(channelId) {
       [channelId],
     );
   } catch (error) {
-    console.log(error);
+    console.error("Database error in logArchiveChannel:", error.message);
   }
 }
 
@@ -1011,7 +1007,7 @@ async function storeMessage(channelId, userId, ts, blocks, files, threadTs) {
 
   if (!rows2.length || !rows2[0].gpm_slack_ts) {
     if (threadTs) {
-      console.log("unmatched thread: ", threadTs, "for message: ", ts);
+      console.error("unmatched thread: ", threadTs, "for message: ", ts);
     }
     threadTs = null;
   }

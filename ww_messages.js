@@ -108,8 +108,8 @@ async function startVoting({ message, say }) {
     });
     await queries.setMessageIdPoll(game.gms_id, chatMessage);
   } catch (error) {
-    console.log(
-      `Er ging iets mis met automagisch starten stem ronde: ${error}`,
+    console.error(
+      `Er ging iets mis met automagisch starten stem ronde: ${error.message}`,
     );
   }
 }
@@ -247,8 +247,8 @@ async function stopVoting({ message, say }) {
     helpers.shuffle(channelUsersAlive);
     helpers.postDelayed(client, pollMessage.channelId, channelUsersAlive);
   } catch (error) {
-    console.log(
-      `Er ging iets mis met automagische sluiting stemming: ${error}`,
+    console.error(
+      `Er ging iets mis met automagische sluiting stemming: ${error.message}`,
     );
   }
 }
@@ -298,7 +298,9 @@ async function remindVoters({ message, say }) {
       ],
     });
   } catch (error) {
-    console.log(`Er ging iets mis met automagische stemherinnering: ${error}`);
+    console.error(
+      `Er ging iets mis met automagische stemherinnering: ${error.message}`,
+    );
   }
 }
 
@@ -342,11 +344,13 @@ async function registerMessage({ message, say }) {
         threadTs,
       );
     } catch (error) {
-      console.log(`Er ging iets mis met het opslaan van de message: ${error}`);
+      console.error(
+        `Er ging iets mis met het opslaan van de message: ${error.message}`,
+      );
     }
   } catch (error) {
-    console.log(
-      `Er ging iets mis met het registeren van een message: ${error}`,
+    console.error(
+      `Er ging iets mis met het registeren van een message: ${error.message}`,
     );
   }
 }
@@ -355,8 +359,8 @@ async function registerArchive({ event, context }) {
   try {
     await queries.logArchiveChannel(event.channel);
   } catch (error) {
-    console.log(
-      `Er ging iets mis met het registeren van het archiveren van een kanaal: ${error}`,
+    console.error(
+      `Er ging iets mis met het registeren van het archiveren van een kanaal: ${error.message}`,
     );
   }
 }
