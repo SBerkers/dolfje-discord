@@ -21,7 +21,6 @@ ww_actions.addActions(app, webClient);
 ww_commands.addCommands(app, webClient);
 ww_messages.addMessages(app, webClient);
 
-// eslint-disable-next-line unicorn/prefer-top-level-await
 app
   .start(6262)
   .then(() => console.log("dolfje is running"))
