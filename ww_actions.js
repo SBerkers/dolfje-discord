@@ -67,7 +67,7 @@ async function voteClick({ body, ack, say }) {
     await helpers.sendIM(
       client,
       body.user.id,
-      `Er ging iets mis met het stemmen: ${error}`,
+      `Er ging iets mis met het stemmen: ${error.message}`,
     );
   }
 }
@@ -201,7 +201,7 @@ async function quickVoteClick({ body, ack, say }) {
     await helpers.sendIM(
       client,
       body.user.id,
-      `Er ging iets mis met het vluchtig stemmen: ${error}`,
+      `Er ging iets mis met het vluchtig stemmen: ${error.message}`,
     );
   }
 }
@@ -231,7 +231,7 @@ async function selfInviteClickFunction(channelId, userId) {
     await helpers.sendIM(
       client,
       userId,
-      `Er ging iets mis met het het zelf uitnodigen: ${error}`,
+      `Er ging iets mis met het het zelf uitnodigen: ${error.message}`,
     );
   }
 }
@@ -257,7 +257,7 @@ async function selfInviteAllChannelsFunction(gameId, userId) {
     await helpers.sendIM(
       client,
       userId,
-      `Er ging iets mis met uitnodigen voor alle kanalen: ${error}`,
+      `Er ging iets mis met uitnodigen voor alle kanalen: ${error.message}`,
     );
   }
 }
@@ -275,7 +275,7 @@ async function joinAction({ body, ack, say }) {
     await helpers.sendIM(
       client,
       body.user.id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLJOIN")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLJOIN")}: ${error.message}`,
     );
   }
 }
@@ -376,7 +376,7 @@ async function joinActionFunction(
     await helpers.sendIM(
       client,
       userId,
-      `Er ging iets mis met deelnemen: ${error}`,
+      `Er ging iets mis met deelnemen: ${error.message}`,
     );
   }
 }
@@ -394,7 +394,7 @@ async function viewAction({ body, ack, say }) {
     await helpers.sendIM(
       client,
       body.user.id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLVIEW")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLVIEW")}: ${error.message}`,
     );
   }
 }
@@ -561,7 +561,7 @@ async function viewActionFunction( // NOSONAR
     await helpers.sendIM(
       client,
       userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLVIEW")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLVIEW")}: ${error.message}`,
     );
   }
 }
@@ -585,7 +585,7 @@ async function unregisterAction({ body, ack, say }) {
     await helpers.sendIM(
       client,
       body.user.id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREMOVEYOURSELFFROMGAME")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREMOVEYOURSELFFROMGAME")}: ${error.message}`,
     );
   }
 }
@@ -688,7 +688,7 @@ async function unregisterActionFunction(
     await helpers.sendIM(
       client,
       userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREMOVEYOURSELFFROMGAME")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREMOVEYOURSELFFROMGAME")}: ${error.message}`,
     );
   }
 }
@@ -716,7 +716,7 @@ async function addModeratorAction({ body, ack, say }) {
     await helpers.sendIM(
       client,
       userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDEXTRAMODERATOR")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDEXTRAMODERATOR")}: ${error.message}`,
     );
   }
 }
@@ -870,7 +870,7 @@ async function addModeratorFunction(
     await helpers.sendIM(
       client,
       userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDEXTRAMODERATOR")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDEXTRAMODERATOR")}: ${error.message}`,
     );
   }
 }
@@ -896,7 +896,7 @@ async function createNewChannel({ body, ack, say }) {
     await helpers.sendIM(
       client,
       userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`,
     );
   }
 }
@@ -960,7 +960,7 @@ async function createNewChannelFunction(
     await helpers.sendIM(
       client,
       userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`,
     );
   }
 }
@@ -977,7 +977,7 @@ async function deleteMessage({ body, ack, say }) {
     await helpers.sendIM(
       client,
       body.user.id,
-      `${t("TEXTCOMMANDERROR")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")}: ${error.message}`,
     );
   }
 }

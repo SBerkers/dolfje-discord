@@ -26,6 +26,6 @@ app
   .start(6262)
   .then(() => console.log("dolfje is running"))
   .catch((error) => {
-    console.error(error);
+    console.error(error.message);
     process.exit(1);
   });

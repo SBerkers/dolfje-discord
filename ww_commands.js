@@ -270,7 +270,7 @@ function addSummaryFiles(summary, filesRaw) {
       summary.push(file);
     }
   } catch (err) {
-    console.error(err);
+    console.error(err.message);
     const fallbackMatch = filesRaw.match(/<(.*)\|/);
     const fallbackText = fallbackMatch
       ? fallbackMatch[1]
@@ -382,7 +382,7 @@ async function channelList({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDLIST")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDLIST")}: ${error.message}`,
     );
   }
 }
@@ -405,7 +405,7 @@ async function status({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTATUS")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTATUS")}: ${error.message}`,
     );
   }
 }
@@ -449,7 +449,7 @@ async function archive({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDARCHIVE")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDARCHIVE")}: ${error.message}`,
     );
   }
 }
@@ -514,7 +514,7 @@ async function startVoteRound({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDVOTEROUND")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDVOTEROUND")}: ${error.message}`,
     );
   }
 }
@@ -569,7 +569,7 @@ async function stopVoteRound({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTOPVOTEROUND")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTOPVOTEROUND")}: ${error.message}`,
     );
   }
 }
@@ -597,7 +597,7 @@ async function voteReminder({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREMINDER")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREMINDER")}: ${error.message}`,
     );
   }
 }
@@ -653,7 +653,7 @@ async function voteScore({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDVOTESCORE")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDVOTESCORE")}: ${error.message}`,
     );
   }
 }
@@ -717,7 +717,7 @@ async function startQuickVoteRound({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTQUICKVOTE")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTQUICKVOTE")}: ${error.message}`,
     );
   }
 }
@@ -779,7 +779,7 @@ async function startRegistration({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTREGISTRATION")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTREGISTRATION")}: ${error.message}`,
     );
   }
 }
@@ -1000,7 +1000,7 @@ async function startGameCommand({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTGAME")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTGAME")}: ${error.message}`,
     );
   }
 }
@@ -1103,7 +1103,7 @@ async function stopGameCommand({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTOPGAME")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTOPGAME")}: ${error.message}`,
     );
   }
 }
@@ -1180,7 +1180,7 @@ async function createChannel({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`,
     );
   }
 }
@@ -1228,7 +1228,7 @@ async function markDead({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDDEAD")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDDEAD")}: ${error.message}`,
     );
   }
 }
@@ -1267,7 +1267,7 @@ async function revive({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREVIVE")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREVIVE")}: ${error.message}`,
     );
   }
 }
@@ -1355,7 +1355,7 @@ async function addExtraModerator({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDEXTRAMODERATOR")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDEXTRAMODERATOR")}: ${error.message}`,
     );
   }
 }
@@ -1397,7 +1397,7 @@ async function inviteModerators({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDINVITEMODERATOR")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDINVITEMODERATOR")}: ${error.message}`,
     );
   }
 }
@@ -1433,7 +1433,7 @@ async function invitePlayers({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDINVITEPLAYERS")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDINVITEPLAYERS")}: ${error.message}`,
     );
   }
 }
@@ -1507,7 +1507,7 @@ async function iWillJoin({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLJOIN")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLJOIN")}: ${error.message}`,
     );
   }
 }
@@ -1581,7 +1581,7 @@ async function iWillView({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLVIEW")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLVIEW")}: ${error.message}`,
     );
   }
 }
@@ -1655,7 +1655,7 @@ async function iWillNotJoinAnymore({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREMOVEYOURSELFFROMGAME")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDREMOVEYOURSELFFROMGAME")}: ${error.message}`,
     );
   }
 }
@@ -1713,7 +1713,7 @@ async function assignRoles({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDGIVEROLES")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDGIVEROLES")}: ${error.message}`,
     );
   }
 }
@@ -1727,7 +1727,7 @@ async function help({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDHELP")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDHELP")}: ${error.message}`,
     );
   }
 }
@@ -1769,7 +1769,7 @@ async function lotto({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDLOTTO")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDLOTTO")}: ${error.message}`,
     );
   }
 }
@@ -1820,7 +1820,7 @@ async function summarize({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSUMMARIZE")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSUMMARIZE")}: ${error.message}`,
     );
   }
 }
@@ -1886,7 +1886,7 @@ async function whoIsPlaying({ command, ack, say }) {
     await helpers.sendIM(
       client,
       command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDWHOISPLAYING")}: ${error}`,
+      `${t("TEXTCOMMANDERROR")} ${t("COMMANDWHOISPLAYING")}: ${error.message}`,
     );
   }
 }
