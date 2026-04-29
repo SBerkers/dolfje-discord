@@ -2,36 +2,17 @@ const helpers = require("./ww_helpers");
 const queries = require("./ww_queries");
 const actions = require("./ww_actions");
 const { t } = require("localizify");
-module.exports = { addCommands };
-let client;
 
-function addCommands(app, webClient) {
-  client = webClient;
-  app.command(t("COMMANDLIST"), channelList);
-  app.command(t("COMMANDSTATUS"), status);
-  app.command(t("COMMANDARCHIVE"), archive);
-  app.command(t("COMMANDVOTEROUND"), startVoteRound);
-  app.command(t("COMMANDSTOPVOTEROUND"), stopVoteRound);
-  app.command(t("COMMANDREMINDER"), voteReminder);
-  app.command(t("COMMANDVOTESCORE"), voteScore);
-  app.command(t("COMMANDSTARTQUICKVOTE"), startQuickVoteRound);
-  app.command(t("COMMANDSTARTREGISTRATION"), startRegistration);
-  app.command(t("COMMANDSTARTGAME"), startGameCommand);
-  app.command(t("COMMANDSTOPGAME"), stopGameCommand);
-  app.command(t("COMMANDCREATECHANNEL"), createChannel);
-  app.command(t("COMMANDDEAD"), markDead);
-  app.command(t("COMMANDREVIVE"), revive);
-  app.command(t("COMMANDEXTRAMODERATOR"), addExtraModerator);
-  app.command(t("COMMANDINVITEMODERATOR"), inviteModerators);
-  app.command(t("COMMANDINVITEPLAYERS"), invitePlayers);
-  app.command(t("COMMANDIWILLJOIN"), iWillJoin);
-  app.command(t("COMMANDIWILLVIEW"), iWillView);
-  app.command(t("COMMANDREMOVEYOURSELFFROMGAME"), iWillNotJoinAnymore);
-  app.command(t("COMMANDGIVEROLES"), assignRoles);
-  app.command(t("COMMANDLOTTO"), lotto);
-  app.command(t("COMMANDHELP"), help);
-  app.command(t("COMMANDSUMMARIZE"), summarize);
-  app.command(t("COMMANDWHOISPLAYING"), whoIsPlaying);
+module.exports = { getCommandDefinitions, handleCommand };
+
+let client; // We may retain this for future client injection if necessary
+
+function getCommandDefinitions() {
+  return [];
+}
+
+async function handleCommand(interaction) {
+  // To be implemented in subsequent phases
 }
 
 function formatStatusLine(gameState, index) {
