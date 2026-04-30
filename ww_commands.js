@@ -2,9 +2,86 @@ const helpers = require("./ww_helpers");
 const queries = require("./ww_queries");
 const actions = require("./ww_actions");
 const { t } = require("localizify");
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
-module.exports = { addCommands };
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, EmbedBuilder } = require("discord.js");
+module.exports = {
+  addCommands,
+  getCommandDefinitions,
+  handleCommand,
+  voteReminder,
+  voteScore,
+  lotto
+};
 let client;
+
+function getCommandDefinitions() {
+  return [
+    {
+      name: "startregistration",
+      description: "Start registratie voor een nieuw spel"
+    },
+    {
+      name: "startgame",
+      description: "Start het spel"
+    },
+    {
+      name: "stopgame",
+      description: "Stop het huidige spel"
+    },
+    {
+      name: "voteround",
+      description: "Start een stemronde"
+    },
+    {
+      name: "assignroles",
+      description: "Verdeel de rollen in het spel"
+    },
+    {
+      name: "iwilljoin",
+      description: "Doe mee met een spel"
+    },
+    {
+      name: "wwvotereminder",
+      description: "Stuur een herinnering naar iedereen die nog niet gestemd heeft",
+      options: [
+        {
+          name: "message",
+          type: 3, // STRING
+          description: "De tijdslimiet of het bericht voor de herinnering",
+          required: false
+        }
+      ]
+    },
+    {
+      name: "wwvotescore",
+      description: "Toon de huidige stemstand (alleen voor vertellers/sectators)"
+    },
+    {
+      name: "wwlotto",
+      description: "Kies een willekeurige speler",
+      options: [
+        {
+          name: "public",
+          type: 5, // BOOLEAN
+          description: "Laat de uitkomst aan iedereen in het kanaal zien",
+          required: false
+        }
+      ]
+    }
+  ];
+}
+
+async function handleCommand(interaction) {
+  const { commandName } = interaction;
+  if (commandName === 'wwvotereminder') {
+    await voteReminder(interaction);
+  } else if (commandName === 'wwvotescore') {
+    await voteScore(interaction);
+  } else if (commandName === 'wwlotto') {
+    await lotto(interaction);
+  } else {
+    await interaction.reply({ content: `Command /${commandName} not implemented yet`, ephemeral: true });
+  }
+}
 
 function addCommands(app, webClient) {
   client = webClient;
@@ -1085,8 +1162,6 @@ async function stopGameCommand({ command, ack, say }) {
     );
   }
 }
-
-const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 
 async function createChannel(interaction) {
   try {

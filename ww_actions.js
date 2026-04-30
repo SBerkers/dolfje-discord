@@ -1,11 +1,12 @@
 module.exports = {
-  addActions,
+  handleAction,
   selfInviteClickFunction,
   joinActionFunction,
   viewActionFunction,
   unregisterActionFunction,
   addModeratorFunction,
   createNewChannelFunction,
+  voteSelectFunction,
 };
 
 let helpers = require("./ww_helpers");
@@ -14,61 +15,45 @@ const { t } = require("localizify");
 
 let client;
 
-function addActions(app, webClient) {
-  client = webClient;
-  app.action(/^stem-.*/, voteClick);
-  app.action(/^vluchtig-.*/, quickVoteClick);
-  app.action(/^selfinvite-.*/, selfInviteClick);
-  app.action(/^inschrijven-.*/, joinAction);
-  app.action(/^meekijken-.*/, viewAction);
-  app.action(/^uitschrijven-.*/, unregisterAction);
-  app.action(/^delete-.*/, deleteMessage);
-  app.action(/^verteller-.*/, addModeratorAction);
-  app.action(/^kanaal-.*/, createNewChannel);
+async function handleAction(interaction) {
+  // To be implemented in subsequent phases
 }
 
 const vluchtigeStemmingen = [];
 
-async function voteClick({ body, ack, say }) {
-  ack();
+async function voteSelectFunction(interaction) {
   try {
-    const game = await queries.getActiveGameWithChannel(body.channel.id);
-    const channelUsersList = await helpers.getUserlist(client, body.channel.id);
-    await queries.votesOn(game.gms_id, body.user.id, body.actions[0].value);
+    const gameId = interaction.customId.split("-")[1];
+    const voterId = interaction.user.id;
+    const targetId = interaction.values[0];
 
-    await client.chat.postEphemeral({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: body.channel.id,
-      text: `Je hebt gestemd op: ${channelUsersList
-        .filter((x) => x.id === body.actions[0].value)
-        .map((x) => x.name)
-        .join()}`,
-      user: body.user.id,
+    await queries.votesOn(gameId, voterId, targetId);
+
+    await interaction.reply({
+      content: `Je hebt gestemd op: <@${targetId}>`,
+      ephemeral: true,
     });
-    const channelId = await queries.getChannel(
-      game.gms_id,
+
+    const stemstandChannelId = await queries.getChannel(
+      gameId,
       helpers.channelType.stemstand,
     );
-    await client.chat.postMessage({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channelId,
-      text: `<@${body.user.id}> heeft gestemd op: <@${body.actions[0].value}>`,
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `<@${body.user.id}> heeft gestemd op: <@${body.actions[0].value}>`,
-          },
-        },
-      ],
-    });
+
+    const stemstandChannel = await interaction.client.channels.fetch(stemstandChannelId).catch(() => null);
+    if (stemstandChannel) {
+      await stemstandChannel.send({
+        content: `<@${voterId}> heeft gestemd op: <@${targetId}>`,
+      });
+    }
+
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      body.user.id,
-      `Er ging iets mis met het stemmen: ${error.message}`,
-    );
+    console.error(error.message);
+    const errorMessage = `Er ging iets mis met het stemmen: ${error.message}`;
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: errorMessage, ephemeral: true });
+    } else {
+      await interaction.reply({ content: errorMessage, ephemeral: true });
+    }
   }
 }
 
@@ -206,59 +191,61 @@ async function quickVoteClick({ body, ack, say }) {
   }
 }
 
-async function selfInviteClick({ body, ack, say }) {
-  ack();
-  const inviteTarget = body.actions[0].value;
-  const userId = body.user.id;
+async function selfInviteClick(interaction) {
+  const inviteTarget = interaction.customId.replace("selfinvite-", "");
+  const userId = interaction.user.id;
   if (inviteTarget.startsWith("allchannels-")) {
     const gameId = Number.parseInt(inviteTarget.split("-")[1], 10);
     if (!Number.isNaN(gameId)) {
-      await selfInviteAllChannelsFunction(gameId, userId);
+      await selfInviteAllChannelsFunction(interaction, gameId, userId);
       return;
     }
   }
-  await selfInviteClickFunction(inviteTarget, userId);
+  await selfInviteClickFunction(interaction, inviteTarget, userId);
 }
 
-async function selfInviteClickFunction(channelId, userId) {
+async function selfInviteClickFunction(interaction, channelId, userId) {
+  await interaction.deferReply({ ephemeral: true });
   try {
-    await client.conversations.invite({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channelId,
-      users: userId,
-    });
+    const guild = interaction.guild;
+    const channel = await guild.channels.fetch(channelId);
+
+    if (channel) {
+        await channel.permissionOverwrites.edit(userId, {
+            ViewChannel: true
+        });
+        await interaction.editReply({ content: `You have been granted access to ${channel.name}` });
+    } else {
+        await interaction.editReply({ content: `Channel not found.` });
+    }
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      userId,
-      `Er ging iets mis met het het zelf uitnodigen: ${error.message}`,
-    );
+    await interaction.editReply({ content: `Er ging iets mis met het het zelf uitnodigen: ${error.message}` });
   }
 }
 
-async function selfInviteAllChannelsFunction(gameId, userId) {
+async function selfInviteAllChannelsFunction(interaction, gameId, userId) {
+  await interaction.deferReply({ ephemeral: true });
   try {
     const channels = await queries.getAllChannels(gameId);
-    for (const channel of channels) {
+    const guild = interaction.guild;
+    let addedCount = 0;
+
+    for (const channelRecord of channels) {
       try {
-        await client.conversations.invite({
-          token: process.env.SLACK_BOT_TOKEN,
-          channel: channel.gch_slack_id,
-          users: userId,
-        });
-      } catch (error) {
-        if (error?.data?.error === "already_in_channel") {
-          continue;
+        const channel = await guild.channels.fetch(channelRecord.gch_slack_id);
+        if (channel) {
+            await channel.permissionOverwrites.edit(userId, {
+                ViewChannel: true
+            });
+            addedCount++;
         }
-        throw error;
+      } catch (error) {
+        console.error(`Failed to add user to channel ${channelRecord.gch_slack_id}:`, error.message);
       }
     }
+    await interaction.editReply({ content: `You have been granted access to ${addedCount} channels.` });
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      userId,
-      `Er ging iets mis met uitnodigen voor alle kanalen: ${error.message}`,
-    );
+    await interaction.editReply({ content: `Er ging iets mis met uitnodigen voor alle kanalen: ${error.message}` });
   }
 }
 
