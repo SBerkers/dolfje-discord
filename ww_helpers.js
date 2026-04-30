@@ -9,7 +9,35 @@ const channelType = {
   spoilers: "SPOILERS",
 };
 
+
+async function createDiscordChannelWithPermissions(client, categoryId, channelName, userIds) {
+  const permissionOverwrites = [
+    {
+      id: categoryId, // Deny everyone (using categoryId as a placeholder for guild ID)
+      deny: ['VIEW_CHANNEL']
+    }
+  ];
+
+  for (const userId of userIds) {
+    permissionOverwrites.push({
+      id: userId,
+      allow: ['VIEW_CHANNEL']
+    });
+  }
+
+  // Return a mock structure for now until full Discord migration
+  return {
+    ok: true,
+    channel: {
+      id: "mock-" + channelName,
+      name: channelName,
+      permissionOverwrites
+    }
+  };
+}
+
 module.exports = {
+  createDiscordChannelWithPermissions,
   getUserlist,
   getUserName,
   sendIM,

@@ -6,6 +6,7 @@ module.exports = {
   unregisterActionFunction,
   addModeratorFunction,
   createNewChannelFunction,
+  voteSelectFunction,
 };
 
 let helpers = require("./ww_helpers");
@@ -20,46 +21,39 @@ async function handleAction(interaction) {
 
 const vluchtigeStemmingen = [];
 
-async function voteClick({ body, ack, say }) {
-  ack();
+async function voteSelectFunction(interaction) {
   try {
-    const game = await queries.getActiveGameWithChannel(body.channel.id);
-    const channelUsersList = await helpers.getUserlist(client, body.channel.id);
-    await queries.votesOn(game.gms_id, body.user.id, body.actions[0].value);
+    const gameId = interaction.customId.split("-")[1];
+    const voterId = interaction.user.id;
+    const targetId = interaction.values[0];
 
-    await client.chat.postEphemeral({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: body.channel.id,
-      text: `Je hebt gestemd op: ${channelUsersList
-        .filter((x) => x.id === body.actions[0].value)
-        .map((x) => x.name)
-        .join()}`,
-      user: body.user.id,
+    await queries.votesOn(gameId, voterId, targetId);
+
+    await interaction.reply({
+      content: `Je hebt gestemd op: <@${targetId}>`,
+      ephemeral: true,
     });
-    const channelId = await queries.getChannel(
-      game.gms_id,
+
+    const stemstandChannelId = await queries.getChannel(
+      gameId,
       helpers.channelType.stemstand,
     );
-    await client.chat.postMessage({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channelId,
-      text: `<@${body.user.id}> heeft gestemd op: <@${body.actions[0].value}>`,
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `<@${body.user.id}> heeft gestemd op: <@${body.actions[0].value}>`,
-          },
-        },
-      ],
-    });
+
+    const stemstandChannel = await interaction.client.channels.fetch(stemstandChannelId).catch(() => null);
+    if (stemstandChannel) {
+      await stemstandChannel.send({
+        content: `<@${voterId}> heeft gestemd op: <@${targetId}>`,
+      });
+    }
+
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      body.user.id,
-      `Er ging iets mis met het stemmen: ${error.message}`,
-    );
+    console.error(error.message);
+    const errorMessage = `Er ging iets mis met het stemmen: ${error.message}`;
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: errorMessage, ephemeral: true });
+    } else {
+      await interaction.reply({ content: errorMessage, ephemeral: true });
+    }
   }
 }
 
@@ -272,103 +266,65 @@ async function joinAction({ body, ack, say }) {
 }
 
 async function joinActionFunction(
-  userId,
+  interaction,
   gameId,
-  msgChannelId,
-  msgTs,
   singleGame,
 ) {
   try {
-    const userName = await helpers.getUserName(client, userId);
+    const userId = interaction.user.id;
+    const userName = interaction.user.username;
     const result = await queries.joinGame(gameId, userId, userName);
     const thisGame = await queries.getSpecificGame(gameId);
     if (result.succes) {
-      await client.chat.postMessage({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: process.env.REG_CHANNEL,
-        text: `${userName} ${t("TEXTJOINED")} ${t(thisGame.gms_name)}, ${t("TEXTTHEREARE")} ${
-          result.numberOfPlayers
-        } ${t("TEXTAMOUNTJOINED")} ${t("TEXTAMOUNTVIEWING")} ${result.numberOfViewers}`,
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `${userName} ${t("TEXTJOINED")} ${t(thisGame.gms_name)}, ${t("TEXTTHEREARE")} ${
-                result.numberOfPlayers
-              } ${t("TEXTAMOUNTJOINED")} ${t("TEXTAMOUNTVIEWING")} ${result.numberOfViewers}`,
-            },
-          },
-        ],
-      });
+      const regChannel = await interaction.client.channels.fetch(process.env.REG_CHANNEL).catch(() => null);
+      if (regChannel) {
+        await regChannel.send({
+          content: `${userName} ${t("TEXTJOINED")} ${t(thisGame.gms_name)}, ${t("TEXTTHEREARE")} ${
+            result.numberOfPlayers
+          } ${t("TEXTAMOUNTJOINED")} ${t("TEXTAMOUNTVIEWING")} ${result.numberOfViewers}`,
+        });
+      }
       const doeMeeMessage = t("TEXTJOINEDGAME");
-      await helpers.sendIM(client, userId, doeMeeMessage);
+      await interaction.reply({ content: doeMeeMessage, ephemeral: true });
     } else {
-      await helpers.sendIM(
-        client,
-        userId,
-        `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLJOIN")}: ${result.error}`,
-      );
+      await interaction.reply({
+        content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDIWILLJOIN")}: ${result.error}`,
+        ephemeral: true,
+      });
     }
     if (!singleGame) {
       const games = await queries.getGameRegisterUser(userId);
       if (games.length > 0) {
-        let buttonElements = [
-          {
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: `${t("TEXTCLOSEMESSAGE")}`,
-            },
-            value: "Close",
-            action_id: `delete-${msgChannelId}`,
-          },
-        ];
+        const actionRow = new ActionRowBuilder();
         for (const game of games) {
-          buttonElements.push({
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: game.gms_name,
-            },
-            value: game.gms_id.toString(),
-            action_id: `inschrijven-${game.gms_id}`,
-          });
+          actionRow.addComponents(
+            new ButtonBuilder()
+              .setCustomId(`inschrijven-${game.gms_id}`)
+              .setLabel(game.gms_name)
+              .setStyle(ButtonStyle.Primary)
+          );
         }
-        let buttonblocks = [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKREGISTER")}`,
-            },
-          },
-          {
-            type: "actions",
-            elements: buttonElements,
-          },
-        ];
-        await client.chat.update({
-          token: process.env.SLACK_BOT_TOKEN,
-          channel: msgChannelId,
-          ts: msgTs,
-          text: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKREGISTER")}`,
-          blocks: buttonblocks,
+        actionRow.addComponents(
+          new ButtonBuilder()
+            .setCustomId("delete-close")
+            .setLabel(`${t("TEXTCLOSEMESSAGE")}`)
+            .setStyle(ButtonStyle.Secondary)
+        );
+        await interaction.message.edit({
+          content: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKREGISTER")}`,
+          components: [actionRow],
         });
       } else {
-        await client.chat.delete({
-          token: process.env.SLACK_BOT_TOKEN,
-          channel: msgChannelId,
-          ts: msgTs,
-        });
+        await interaction.message.delete();
       }
     }
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      userId,
-      `Er ging iets mis met deelnemen: ${error.message}`,
-    );
+    const errorMsg = `Er ging iets mis met deelnemen: ${error.message}`;
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: errorMsg, ephemeral: true });
+    } else {
+      await interaction.followUp({ content: errorMsg, ephemeral: true });
+    }
   }
 }
 
@@ -866,29 +822,31 @@ async function addModeratorFunction(
   }
 }
 
-async function createNewChannel({ body, ack, say }) {
-  ack();
+const { ChannelType } = require('discord.js');
+
+async function createNewChannel(interaction) {
   try {
-    const userId = body.user.id;
-    const gameId = body.actions[0].action_id.trim().split("-")[1];
-    const channelName = body.actions[0].value;
-    const msgChannelId = body.container.channel_id;
-    const msgTs = body.container.message_ts;
+    const userId = interaction.user.id;
+    // Extract channelName from customId (e.g. kanaal-mychannel)
+    const channelName = interaction.customId.replace("kanaal-", "");
+    // Extract gameId from the selected value
+    const gameId = interaction.values[0];
     const singleGame = false;
     await createNewChannelFunction(
       gameId,
       userId,
       channelName,
-      msgChannelId,
-      msgTs,
+      interaction,
+      null,
       singleGame,
     );
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`,
-    );
+    console.error(error.message);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
@@ -896,7 +854,7 @@ async function createNewChannelFunction(
   gameId,
   userId,
   newChannelName,
-  msgChannelId,
+  interaction,
   msgTs,
   singleGame,
 ) {
@@ -912,47 +870,64 @@ async function createNewChannelFunction(
     let channelName;
     const regexName = /^ww\d.*/i;
     if (regexName.test(newChannelName) === false) {
-      channelName = `${game.gms_name.toLowerCase().split(" ").join("_")}_${newChannelName.toLowerCase()}`;
+      channelName = `${game.gms_name.toLowerCase().split(" ").join("-")}-${newChannelName.toLowerCase()}`;
     } else {
       channelName = newChannelName.toLowerCase();
     }
 
-    const channel = await client.conversations.create({
-      token: process.env.SLACK_BOT_TOKEN,
+    // Sanitize the entire channel name to remove spaces as required by Discord text channels
+    channelName = channelName.replace(/\s+/g, '-');
+
+    const category = interaction.guild.channels.cache.find(c => c.name.toLowerCase() === game.gms_name.toLowerCase() && c.type === ChannelType.GuildCategory);
+
+    const permissionOverwrites = [
+      {
+        id: interaction.guild.id,
+        deny: ['ViewChannel'],
+      },
+    ];
+
+    for (const modId of allModerators) {
+      permissionOverwrites.push({
+        id: modId,
+        allow: ['ViewChannel'],
+      });
+    }
+
+    const channel = await interaction.guild.channels.create({
       name: channelName,
-      is_private: true,
+      type: ChannelType.GuildText,
+      parent: category ? category.id : null,
+      permissionOverwrites: permissionOverwrites,
     });
-    await client.conversations.invite({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channel.channel.id,
-      users: allModerators.join(","),
+
+    await channel.send({
+      content: `<@${userId}> ${t("TEXTCREATEDCHANNEL")}`,
     });
-    await client.chat.postMessage({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channel.channel.id,
-      text: `${await helpers.getUserName(client, userId)} ${t("TEXTCREATEDCHANNEL")}`,
-    });
+
     const channelInput = {
       gch_gms_id: gameId,
-      gch_slack_id: channel.channel.id,
-      gch_name: channel.channel.name,
+      gch_slack_id: channel.id,
+      gch_name: channel.name,
       gch_type: helpers.channelType.standard,
       gch_user_created: userId,
     };
     await queries.logChannel(channelInput);
+
     if (!singleGame) {
-      await client.chat.delete({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: msgChannelId,
-        ts: msgTs,
-      });
+      if (interaction.isStringSelectMenu()) {
+        await interaction.update({ content: `${t("TEXTCREATEDCHANNEL")} <#${channel.id}>`, components: [] });
+      }
+    } else {
+      await interaction.reply({ content: `${t("TEXTCREATEDCHANNEL")} <#${channel.id}>`, ephemeral: true });
     }
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      userId,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`,
-    );
+    console.error(error.message);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDCREATECHANNEL")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
