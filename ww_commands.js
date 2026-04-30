@@ -221,44 +221,16 @@ function assignOptionalRoles(playersAlive, optionals) {
   }
 }
 
-function parseSummaryDateRange(commandText) {
-  const params = commandText.trim().split(" ");
-  const regex = /202\d-[0-1]\d-[0-3]\d/m;
-  if (regex.exec(params[0]) === null) {
-    throw new Error("Date is invalid, format is yyyy-mm-dd");
-  }
-  if (params.length < 2) {
-    return { startDate: params[0], endDate: params[0] };
-  }
-  if (regex.exec(params[1]) === null) {
-    throw new Error("Date is invalid, format is yyyy-mm-dd");
-  }
-  return { startDate: params[0], endDate: params[1] };
-}
 
 function addSummaryHeader(summary, message, createdAt) {
-  summary.push({
-    type: "context",
-    elements: [
-      {
-        type: "mrkdwn",
-        text: `*${message.gpl_name}* (${createdAt.toLocaleTimeString()})`,
-      },
-    ],
-  });
+  summary.push(`\n[${createdAt.toLocaleTimeString()}] **${message.gpl_name}**:`);
 }
 
 function addSummaryText(summary, message) {
   if (message.gpm_blocks === "") {
     return;
   }
-  summary.push({
-    type: "section",
-    text: {
-      type: "mrkdwn",
-      text: `${message.gpm_blocks}`,
-    },
-  });
+  summary.push(`${message.gpm_blocks}`);
 }
 
 function addSummaryFiles(summary, filesRaw) {
@@ -268,7 +240,14 @@ function addSummaryFiles(summary, filesRaw) {
   try {
     const files = JSON.parse(filesRaw);
     for (const file of files) {
-      summary.push(file);
+      // In slack this was a block object, let's extract an image_url or similar if it's there
+      if (file.image_url) {
+        summary.push(`[Image: ${file.image_url}]`);
+      } else if (file.url) {
+        summary.push(`[File: ${file.url}]`);
+      } else {
+        summary.push(`[Attachment]`);
+      }
     }
   } catch (err) {
     console.error(err.message);
@@ -276,13 +255,7 @@ function addSummaryFiles(summary, filesRaw) {
     const fallbackText = fallbackMatch
       ? fallbackMatch[1]
       : "<failed loading image>";
-    summary.push({
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: fallbackText,
-      },
-    });
+    summary.push(`[Attachment: ${fallbackText}]`);
   }
 }
 
@@ -292,28 +265,7 @@ async function addThreadedSummary(summary, channelId, messageTs) {
     messageTs,
   );
   for (const tMessage of threadMessages) {
-    summary.push({
-      type: "section",
-      fields: [
-        {
-          type: "mrkdwn",
-          text: `> _${tMessage.gpl_name}_`,
-        },
-        {
-          type: "mrkdwn",
-          text: `_${tMessage.gpm_blocks}_`,
-        },
-      ],
-    });
-  }
-}
-
-async function postSummaryInChunks(summary, say) {
-  while (summary.length) {
-    const subSummary = summary.splice(0, 25);
-    say({
-      blocks: subSummary,
-    });
+    summary.push(`  > _${tMessage.gpl_name}_: ${tMessage.gpm_blocks}`);
   }
 }
 
@@ -1086,7 +1038,7 @@ async function stopGameCommand({ command, ack, say }) {
   }
 }
 
-const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { StringSelectMenuBuilder } = require('discord.js');
 
 async function createChannel(interaction) {
   try {
@@ -1738,21 +1690,31 @@ async function lotto({ command, ack, say }) {
   }
 }
 
-async function summarize({ command, ack, say }) {
-  ack();
-
+async function summarize(interaction) {
   try {
-    const { startDate, endDate } = parseSummaryDateRange(command.text);
+    await interaction.deferReply({ ephemeral: false });
+
+    let startDate = interaction.options ? interaction.options.getString("startdate") : null;
+    let endDate = interaction.options ? interaction.options.getString("enddate") : null;
+
+    if (!startDate) {
+      // Default to today if not provided
+      const now = new Date();
+      startDate = now.toISOString().split('T')[0];
+    }
+    if (!endDate) {
+      endDate = startDate;
+    }
 
     const threads = await queries.threadIdsInChannelByDate(
-      command.channel_id,
+      interaction.channelId,
       startDate,
       endDate,
     );
     const threadIds = new Set(threads.map((x) => x.gpm_thread_ts));
 
     const ntMessages = await queries.nonThreadedMessagesInChannelByDate(
-      command.channel_id,
+      interaction.channelId,
       startDate,
       endDate,
     );
@@ -1773,19 +1735,39 @@ async function summarize({ command, ack, say }) {
       if (threadIds.has(message.gpm_slack_ts)) {
         await addThreadedSummary(
           summary,
-          command.channel_id,
+          interaction.channelId,
           message.gpm_slack_ts,
         );
       }
     }
 
-    await postSummaryInChunks(summary, say);
+    const fullText = summary.join('\n');
+
+    if (fullText.trim().length === 0) {
+      await interaction.editReply({ content: "No messages found for this date range." });
+      return;
+    }
+
+    const buffer = Buffer.from(fullText, 'utf-8');
+
+    await interaction.editReply({
+      content: `Summary for ${startDate} to ${endDate}`,
+      files: [{
+        attachment: buffer,
+        name: 'summary.txt'
+      }]
+    });
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSUMMARIZE")}: ${error.message}`,
-    );
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({
+        content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDSUMMARIZE")}: ${error.message}`
+      });
+    } else {
+      await interaction.reply({
+        content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDSUMMARIZE")}: ${error.message}`,
+        ephemeral: true
+      });
+    }
   }
 }
 
