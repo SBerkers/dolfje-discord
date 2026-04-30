@@ -6,6 +6,7 @@ module.exports = {
   unregisterActionFunction,
   addModeratorFunction,
   createNewChannelFunction,
+  voteSelectFunction,
 };
 
 let helpers = require("./ww_helpers");
@@ -29,46 +30,39 @@ function addActions(app, webClient) {
 
 const vluchtigeStemmingen = [];
 
-async function voteClick({ body, ack, say }) {
-  ack();
+async function voteSelectFunction(interaction) {
   try {
-    const game = await queries.getActiveGameWithChannel(body.channel.id);
-    const channelUsersList = await helpers.getUserlist(client, body.channel.id);
-    await queries.votesOn(game.gms_id, body.user.id, body.actions[0].value);
+    const gameId = interaction.customId.split("-")[1];
+    const voterId = interaction.user.id;
+    const targetId = interaction.values[0];
 
-    await client.chat.postEphemeral({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: body.channel.id,
-      text: `Je hebt gestemd op: ${channelUsersList
-        .filter((x) => x.id === body.actions[0].value)
-        .map((x) => x.name)
-        .join()}`,
-      user: body.user.id,
+    await queries.votesOn(gameId, voterId, targetId);
+
+    await interaction.reply({
+      content: `Je hebt gestemd op: <@${targetId}>`,
+      ephemeral: true,
     });
-    const channelId = await queries.getChannel(
-      game.gms_id,
+
+    const stemstandChannelId = await queries.getChannel(
+      gameId,
       helpers.channelType.stemstand,
     );
-    await client.chat.postMessage({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channelId,
-      text: `<@${body.user.id}> heeft gestemd op: <@${body.actions[0].value}>`,
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `<@${body.user.id}> heeft gestemd op: <@${body.actions[0].value}>`,
-          },
-        },
-      ],
-    });
+
+    const stemstandChannel = await interaction.client.channels.fetch(stemstandChannelId).catch(() => null);
+    if (stemstandChannel) {
+      await stemstandChannel.send({
+        content: `<@${voterId}> heeft gestemd op: <@${targetId}>`,
+      });
+    }
+
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      body.user.id,
-      `Er ging iets mis met het stemmen: ${error.message}`,
-    );
+    console.error(error.message);
+    const errorMessage = `Er ging iets mis met het stemmen: ${error.message}`;
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: errorMessage, ephemeral: true });
+    } else {
+      await interaction.reply({ content: errorMessage, ephemeral: true });
+    }
   }
 }
 
