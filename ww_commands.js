@@ -1351,11 +1351,11 @@ async function inviteModerators({ command, ack, say }) {
       (x) => !channelUsersList.map((y) => y.id).includes(x),
     );
     if (usersToInvite.length > 0) {
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: command.channel_id,
-        users: usersToInvite.join(),
-      });
+      await helpers.grantDiscordChannelAccess(
+        client,
+        command.channel_id,
+        usersToInvite
+      );
       const channelInput = {
         gch_gms_id: game[0].gms_id,
         gch_slack_id: command.channel_id,
@@ -1399,11 +1399,11 @@ async function invitePlayers({ command, ack, say }) {
       (x) => !channelUsersList.map((y) => y.id).includes(x.user_id),
     );
     if (usersToInvite.length > 0) {
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: command.channel_id,
-        users: usersToInvite.map((x) => x.user_id).join(),
-      });
+      await helpers.grantDiscordChannelAccess(
+        client,
+        command.channel_id,
+        usersToInvite.map((x) => x.user_id)
+      );
     } else {
       await helpers.sendIM(client, command.user_id, `${t("TEXTALLINVITED")}`);
     }

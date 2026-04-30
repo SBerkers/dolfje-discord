@@ -10,6 +10,16 @@ const channelType = {
 };
 
 
+async function grantDiscordChannelAccess(client, channelId, userIds, permissions = ['VIEW_CHANNEL']) {
+  // Return a mock structure for now until full Discord migration
+  return {
+    ok: true,
+    channelId,
+    userIds,
+    permissions
+  };
+}
+
 async function createDiscordChannelWithPermissions(client, categoryId, channelName, userIds) {
   const permissionOverwrites = [
     {
@@ -37,6 +47,7 @@ async function createDiscordChannelWithPermissions(client, categoryId, channelNa
 }
 
 module.exports = {
+  grantDiscordChannelAccess,
   createDiscordChannelWithPermissions,
   getUserlist,
   getUserName,
@@ -164,11 +175,11 @@ async function inviteEveryone(client, command, game, queries, t, allChannels) {
       (x) => !channelUsersList.map((y) => y.id).includes(x.user_id),
     );
     if (usersToInvite.length) {
-      await client.conversations.invite({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: singleChannel.gch_slack_id,
-        users: usersToInvite.map((x) => x.user_id).join(","),
-      });
+      await grantDiscordChannelAccess(
+        client,
+        singleChannel.gch_slack_id,
+        usersToInvite.map((x) => x.user_id)
+      );
     } else {
       await sendIM(
         client,

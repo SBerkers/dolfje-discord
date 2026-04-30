@@ -222,11 +222,7 @@ async function selfInviteClick({ body, ack, say }) {
 
 async function selfInviteClickFunction(channelId, userId) {
   try {
-    await client.conversations.invite({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channelId,
-      users: userId,
-    });
+    await helpers.grantDiscordChannelAccess(client, channelId, [userId]);
   } catch (error) {
     await helpers.sendIM(
       client,
@@ -240,18 +236,7 @@ async function selfInviteAllChannelsFunction(gameId, userId) {
   try {
     const channels = await queries.getAllChannels(gameId);
     for (const channel of channels) {
-      try {
-        await client.conversations.invite({
-          token: process.env.SLACK_BOT_TOKEN,
-          channel: channel.gch_slack_id,
-          users: userId,
-        });
-      } catch (error) {
-        if (error?.data?.error === "already_in_channel") {
-          continue;
-        }
-        throw error;
-      }
+      await helpers.grantDiscordChannelAccess(client, channel.gch_slack_id, [userId]);
     }
   } catch (error) {
     await helpers.sendIM(
@@ -721,24 +706,8 @@ async function addModeratorAction({ body, ack, say }) {
   }
 }
 
-function isIgnorableInviteError(error) {
-  const errorCode = error?.data?.error || error?.error;
-  return errorCode === "already_in_channel";
-}
-
 async function inviteUserToChannel(channelId, userId) {
-  try {
-    await client.conversations.invite({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channelId,
-      users: userId,
-    });
-  } catch (error) {
-    if (isIgnorableInviteError(error)) {
-      return;
-    }
-    throw error;
-  }
+  await helpers.grantDiscordChannelAccess(client, channelId, [userId]);
 }
 
 async function inviteModeratorToGameChannels(
