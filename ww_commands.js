@@ -1599,10 +1599,6 @@ async function iWillNotJoinAnymore({ command, ack, say }) {
         true,
       );
     } else if (games.length > 0) {
-      const im = await client.conversations.open({
-        token: process.env.SLACK_BOT_TOKEN,
-        users: command.user_id,
-      });
       let buttonElements = [
         {
           type: "button",
@@ -1638,9 +1634,10 @@ async function iWillNotJoinAnymore({ command, ack, say }) {
           elements: buttonElements,
         },
       ];
-      await client.chat.postMessage({
+      await client.chat.postEphemeral({
         token: process.env.SLACK_BOT_TOKEN,
-        channel: im.channel.id,
+        channel: command.channel_id,
+        user: command.user_id,
         text: `${t("TEXTCLICKGAME")} ${t("TEXTCLICKVIEW")}`,
         blocks: buttonblocks,
       });
