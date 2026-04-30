@@ -37,7 +37,7 @@ These commands provide utility functions and information to users and moderators
      - Behavior: Will use `channel.messages.fetch()` (or DB history if synced). Discord embeds have strict size limits (6000 chars total, 25 fields max). This command will likely need to generate a `.txt` file or multiple chained messages if the summary is large.
 
 ## User Stories & Estimation (Max 200 LOC per story)
-1. **US-UTIL1: Implement Info Commands (`/wwlist`, `/wwstatus`, `/wwhelp`)** (Est: 150 LOC)
+1. **US-UTIL1: [x] Implement Info Commands (`/wwlist`, `/wwstatus`, `/wwhelp`)** (Est: 150 LOC)
    - Setup slash commands.
    - Format DB queries into rich Discord Embeds.
    - Handle ephemeral vs public replies.
