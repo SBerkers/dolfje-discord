@@ -2,7 +2,7 @@ const helpers = require("./ww_helpers");
 const queries = require("./ww_queries");
 const actions = require("./ww_actions");
 const { t } = require("localizify");
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require("discord.js");
 module.exports = { addCommands };
 let client;
 
@@ -455,68 +455,62 @@ async function archive({ command, ack, say }) {
   }
 }
 
-async function startVoteRound({ command, ack, say }) {
-  ack();
+async function startVoteRound(interaction) {
   try {
-    const game = await queries.getActiveGameWithChannel(command.channel_id);
-    if (!(await queries.isModerator(game.gms_id, command.user_id))) {
+    const game = await queries.getActiveGameWithChannel(interaction.channelId);
+    if (!(await queries.isModerator(game.gms_id, interaction.user.id))) {
       const warning = `${t("TEXTSTARTVOTEROUNDMODERATOR")}`;
-      await helpers.sendIM(client, command.user_id, warning);
+      await interaction.reply({ content: warning, ephemeral: true });
       return;
     }
+
     const channelId = await queries.getChannel(
       game.gms_id,
       helpers.channelType.vote,
     );
-    const channelUsersList = await helpers.getUserlist(client, channelId);
-    await queries.startPoll(game.gms_id, command.text.trim() || " ");
-    const playersAlive = await queries.getAlive(game.gms_id);
-    const channelUsersAlive = channelUsersList.filter((x) =>
-      playersAlive.map((y) => y.user_id).includes(x.id),
-    );
 
-    const chuckedUsersAlive = [];
-    while (channelUsersAlive.length) {
-      chuckedUsersAlive.push(channelUsersAlive.splice(0, 5));
+    // Slash commands pass parameters via options
+    const voteTitle = interaction.options ? (interaction.options.getString("title") || " ") : " ";
+    await queries.startPoll(game.gms_id, voteTitle.trim());
+
+    // Fetch players alive
+    const playersAlive = await queries.getAlive(game.gms_id);
+
+    const selectOptions = playersAlive.map((x) => ({
+      label: x.name ? x.name.substring(0, 100) : x.user_id.substring(0, 100),
+      value: x.user_id,
+    }));
+
+    // Fallback if there are no alive players to avoid API error
+    if (selectOptions.length === 0) {
+      selectOptions.push({ label: 'No players alive', value: 'none' });
     }
 
-    let buttonblocks = [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: command.text.trim() || " ",
-        },
-      },
-    ];
-    for (const channelChunk of chuckedUsersAlive)
-      buttonblocks = buttonblocks.concat([
-        {
-          type: "actions",
-          elements: channelChunk.map((x) => ({
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: x.name,
-            },
-            value: x.id,
-            action_id: `stem-${x.id}`,
-          })),
-        },
-      ]);
-    const message = await client.chat.postMessage({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: channelId,
-      text: command.text.trim() || " ",
-      blocks: buttonblocks,
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('stem-menu')
+          .setPlaceholder(t("TEXTCLICKGAME") + " / Vote")
+          .addOptions(selectOptions),
+      );
+
+    // Send the actual vote to the voting channel
+    const voteChannel = await interaction.client.channels.fetch(channelId);
+    const message = await voteChannel.send({
+      content: voteTitle.trim() || t("TEXTVOTEROUND"),
+      components: [row],
     });
-    await queries.setMessageIdPoll(game.gms_id, message);
+
+    // Acknowledge the interaction to the moderator
+    await interaction.reply({ content: `Voting round started in <#${channelId}>`, ephemeral: true });
+
+    await queries.setMessageIdPoll(game.gms_id, { channel: message.channelId, ts: message.id });
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDVOTEROUND")}: ${error.message}`,
-    );
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDVOTEROUND")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDVOTEROUND")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
@@ -659,67 +653,47 @@ async function voteScore({ command, ack, say }) {
   }
 }
 
-async function startQuickVoteRound({ command, ack, say }) {
-  ack();
+async function startQuickVoteRound(interaction) {
   try {
-    const gameId = await queries.getActiveGameWithChannel(command.channel_id);
+    const gameId = await queries.getActiveGameWithChannel(interaction.channelId);
     let playersAlive = await queries.getAlive(gameId.gms_id);
     playersAlive = await helpers.addSlackName(client, playersAlive);
-    const chuckedUsersAlive = [];
-    while (playersAlive.length) {
-      chuckedUsersAlive.push(playersAlive.splice(0, 5));
+
+    const selectOptions = playersAlive.map((x) => ({
+      label: x.slack_name.substring(0, 100),
+      value: x.user_id,
+    }));
+
+    if (selectOptions.length === 0) {
+      selectOptions.push({ label: 'No players alive', value: 'none' });
     }
 
-    let buttonblocks = [
-      {
-        type: "section",
-        text: {
-          type: "mrkdwn",
-          text: `${t("TEXTQUICKVOTE")}:`,
-        },
-      },
-    ];
-    for (const channelChunk of chuckedUsersAlive)
-      buttonblocks = buttonblocks.concat([
-        {
-          type: "actions",
-          elements: channelChunk.map((x) => ({
-            type: "button",
-            text: {
-              type: "plain_text",
-              text: x.slack_name,
-            },
-            value: x.user_id,
-            action_id: `vluchtig-${x.user_id}`,
-          })),
-        },
-      ]);
-    buttonblocks.push({
-      type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: {
-            type: "plain_text",
-            text: `${t("TEXTCLOSEQUICKVOTE")}`,
-          },
-          value: `sluit`,
-          action_id: `vluchtig-sluit`,
-        },
-      ],
-    });
-    await client.chat.postMessage({
-      token: process.env.SLACK_BOT_TOKEN,
-      channel: command.channel_id,
-      text: `${t("TEXTQUICKVOTE")}:`,
-      blocks: buttonblocks,
+    const selectRow = new ActionRowBuilder()
+      .addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('vluchtig-menu')
+          .setPlaceholder(t("TEXTQUICKVOTE"))
+          .addOptions(selectOptions),
+      );
+
+    const buttonRow = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('vluchtig-sluit')
+          .setLabel(t("TEXTCLOSEQUICKVOTE"))
+          .setStyle(ButtonStyle.Danger),
+      );
+
+    await interaction.reply({
+      content: `${t("TEXTQUICKVOTE")}:`,
+      components: [selectRow, buttonRow],
     });
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTQUICKVOTE")}: ${error.message}`,
-    );
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTQUICKVOTE")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDSTARTQUICKVOTE")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
 
@@ -1086,7 +1060,6 @@ async function stopGameCommand({ command, ack, say }) {
   }
 }
 
-const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 
 async function createChannel(interaction) {
   try {
