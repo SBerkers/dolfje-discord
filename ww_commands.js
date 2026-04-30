@@ -411,47 +411,64 @@ async function status({ command, ack, say }) {
   }
 }
 
-async function archive({ command, ack, say }) {
-  ack();
+async function archive(interaction) {
   try {
-    const params = command.text.trim().split(" ");
-    if (params.length < 1) {
-      const warning = `${t("TEXTTWOPARAMETERs")} ${t("COMMANDARCHIVE")} [${t("TEXTPASSWORD")}] [${t("TEXTGAMENAME")}]`;
-      await helpers.sendIM(client, command.user_id, warning);
-      return;
-    }
-    if (params[0] !== process.env.MNOT_ADMIN_PASS) {
+    await interaction.deferReply({ ephemeral: true });
+
+    const pass = interaction.options.getString("pass");
+    const gamename = interaction.options.getString("gamename");
+
+    if (pass !== process.env.MNOT_ADMIN_PASS) {
       const warning = `${t("TEXTINCORRECTPASSWORD")}`;
-      await helpers.sendIM(client, command.user_id, warning);
+      await interaction.editReply({ content: warning });
       return;
     }
-    const game = await queries.getGameName(params[1]);
+
+    const game = await queries.getGameName(gamename);
     const channelList = await queries.getAllChannels(game.gms_id);
+
+    let categoryIdToDelete = null;
+
     for (const oneChannel of channelList) {
       try {
-        await client.conversations.archive({
-          token: process.env.SLACK_BOT_TOKEN,
-          channel: oneChannel.gch_slack_id,
-        });
+        const channel = await interaction.guild.channels.fetch(oneChannel.gch_slack_id);
+        if (channel) {
+          if (!categoryIdToDelete && channel.parentId) {
+            categoryIdToDelete = channel.parentId;
+          }
+          await channel.delete();
+        }
+        await queries.logArchiveChannel(oneChannel.gch_slack_id);
       } catch (error) {
-        await helpers.sendIM(
-          client,
-          command.user_id,
-          `${t("TEXTARCHIVEERROR")}: ${oneChannel.gch_name} (${error}`,
-        );
+        console.error(`${t("TEXTARCHIVEERROR")}: ${oneChannel.gch_name} (${error.message})`);
       }
     }
-    await helpers.sendIM(
-      client,
-      command.user_id,
-      `${game.gms_name} ${t("TEXTARCHIVED")}`,
-    );
+
+    if (categoryIdToDelete) {
+      try {
+        const category = await interaction.guild.channels.fetch(categoryIdToDelete);
+        if (category) {
+          await category.delete();
+        }
+      } catch (error) {
+        console.error(`Failed to delete category: ${error.message}`);
+      }
+    }
+
+    await interaction.editReply({
+      content: `${game.gms_name} ${t("TEXTARCHIVED")}`,
+    });
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDARCHIVE")}: ${error.message}`,
-    );
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({
+        content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDARCHIVE")}: ${error.message}`,
+      });
+    } else {
+      await interaction.reply({
+        content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDARCHIVE")}: ${error.message}`,
+        ephemeral: true,
+      });
+    }
   }
 }
 
@@ -1086,7 +1103,7 @@ async function stopGameCommand({ command, ack, say }) {
   }
 }
 
-const { ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { StringSelectMenuBuilder } = require("discord.js");
 
 async function createChannel(interaction) {
   try {
