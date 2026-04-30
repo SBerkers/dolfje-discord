@@ -1,5 +1,5 @@
 module.exports = {
-  addActions,
+  handleAction,
   selfInviteClickFunction,
   joinActionFunction,
   viewActionFunction,
@@ -15,17 +15,8 @@ const { t } = require("localizify");
 
 let client;
 
-function addActions(app, webClient) {
-  client = webClient;
-  app.action(/^stem-.*/, voteClick);
-  app.action(/^vluchtig-.*/, quickVoteClick);
-  app.action(/^selfinvite-.*/, selfInviteClick);
-  app.action(/^inschrijven-.*/, joinAction);
-  app.action(/^meekijken-.*/, viewAction);
-  app.action(/^uitschrijven-.*/, unregisterAction);
-  app.action(/^delete-.*/, deleteMessage);
-  app.action(/^verteller-.*/, addModeratorAction);
-  app.action(/^kanaal-.*/, createNewChannel);
+async function handleAction(interaction) {
+  // To be implemented in subsequent phases
 }
 
 const vluchtigeStemmingen = [];
