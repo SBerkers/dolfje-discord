@@ -1,3 +1,4 @@
+const { SlashCommandBuilder } = require("discord.js");
 const helpers = require("./ww_helpers");
 const queries = require("./ww_queries");
 const actions = require("./ww_actions");
@@ -32,7 +33,7 @@ function addCommands(app, webClient) {
   app.command(t("COMMANDLOTTO"), lotto);
   app.command(t("COMMANDHELP"), help);
   app.command(t("COMMANDSUMMARIZE"), summarize);
-  app.command(t("COMMANDWHOISPLAYING"), whoIsPlaying);
+  // app.command(t("COMMANDWHOISPLAYING"), whoIsPlaying); // Disabled for Discord migration
 }
 
 function formatStatusLine(gameState, index) {
@@ -1771,8 +1772,7 @@ async function summarize(interaction) {
   }
 }
 
-async function whoIsPlaying({ command, ack, say }) {
-  ack();
+async function whoIsPlaying(interaction) {
   try {
     const state = await queries.getEnrollment();
     let returnText = `${t("TEXTNOREGISTRATION")}`;
@@ -1797,42 +1797,19 @@ async function whoIsPlaying({ command, ack, say }) {
               : "-";
             return `  - ${row.status}: ${players}`;
           });
-          return `*${gameName}*\n${statusLines.join("\n")}`;
+          return `**${gameName}**\n${statusLines.join("\n")}`;
         },
       );
       returnText = `${t("TEXTALLGAMES")}\n${gameLines.join("\n")}`;
     }
 
-    if (command.text.trim() === "public") {
-      say({
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: returnText,
-            },
-          },
-        ],
-      });
-    } else {
-      await client.chat.postEphemeral({
-        token: process.env.SLACK_BOT_TOKEN,
-        channel: command.channel_id,
-        attachments: [
-          {
-            text: `${t("TEXTUSE")} ${t("COMMANDWHOISPLAYING")} ${t("TEXTPUBLIC")}`,
-          },
-        ],
-        text: returnText,
-        user: command.user_id,
-      });
-    }
+    const isPublic = interaction.options ? interaction.options.getBoolean("public") ?? false : false;
+    await interaction.reply({ content: returnText, ephemeral: !isPublic });
   } catch (error) {
-    await helpers.sendIM(
-      client,
-      command.user_id,
-      `${t("TEXTCOMMANDERROR")} ${t("COMMANDWHOISPLAYING")}: ${error.message}`,
-    );
+    if (interaction.deferred || interaction.replied) {
+      await interaction.followUp({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDWHOISPLAYING")}: ${error.message}`, ephemeral: true });
+    } else {
+      await interaction.reply({ content: `${t("TEXTCOMMANDERROR")} ${t("COMMANDWHOISPLAYING")}: ${error.message}`, ephemeral: true });
+    }
   }
 }
