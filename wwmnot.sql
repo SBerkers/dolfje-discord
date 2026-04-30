@@ -18,6 +18,7 @@ create    table game_players (
           gpl_drawn boolean,
           gpl_not_drawn boolean,
           gpl_number_of_messages integer,
+          gpl_rol varchar(255),
           primary key (gpl_gms_id, gpl_slack_id),
           constraint fk_game_players_games foreign key (gpl_gms_id) references games (gms_id)
           );

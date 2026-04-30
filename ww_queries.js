@@ -65,6 +65,7 @@ module.exports = {
   nonThreadedMessagesInChannelByDate,
   threadedMessagesInChannelByTS,
   getEnrollment,
+  updateRole,
 };
 
 const pool = new Pool({
@@ -1087,4 +1088,14 @@ async function threadedMessagesInChannelByTS(channelId, ts) {
     [channelId, ts],
   );
   return rows;
+}
+
+async function updateRole(gameId, userId, roleName) {
+  await promisePool.query(
+    `update game_players
+      set gpl_rol = $1
+      where gpl_gms_id = $2
+      and gpl_slack_id = $3`,
+    [roleName, gameId, userId],
+  );
 }
